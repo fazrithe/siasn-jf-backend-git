@@ -1,7 +1,7 @@
 package store
 
 import (
-	"github.com/if-itb/siasn-jf-backend/store/models"
+	"github.com/fazrithe/siasn-jf-backend-git/store/models"
 )
 
 // ActivityAdmissionSearchFilter represents the filters that can be applied when searching for admissions.

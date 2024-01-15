@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/fazrithe/siasn-jf-backend-git/store/models"
 	"github.com/google/uuid"
-	"github.com/if-itb/siasn-jf-backend/store/models"
 	"github.com/if-itb/siasn-libs-backend/auth"
 	. "github.com/onsi/gomega"
 )

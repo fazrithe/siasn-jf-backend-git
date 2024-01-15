@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/fazrithe/siasn-jf-backend-git/store/models"
 	"github.com/google/uuid"
-	"github.com/if-itb/siasn-jf-backend/store/models"
 )
 
 func (c *Client) InsertModuleTypeCtx(ctx context.Context, request *models.ModuleType) (activityId string, err error) {

@@ -1,4 +1,4 @@
-module github.com/if-itb/siasn-jf-backend
+module github.com/fazrithe/siasn-jf-backend-git
 
 go 1.17
 

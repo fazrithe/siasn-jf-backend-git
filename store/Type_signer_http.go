@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/if-itb/siasn-jf-backend/store/models"
+	"github.com/fazrithe/siasn-jf-backend-git/store/models"
 )
 
 func (c *Client) HandleTypeSignerGet(w http.ResponseWriter, r *http.Request) {

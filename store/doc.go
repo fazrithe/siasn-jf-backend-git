@@ -11,12 +11,14 @@
 // standard convention that we have used can easily be extended or customized as you wish.
 //
 // Use the store package functionalities by creating a Client, by invoking NewClient:
-//   client := store.NewClient(db, sqlMetrics, rcb)
+//
+//	client := store.NewClient(db, sqlMetrics, rcb)
 package store
 
 import (
-	"github.com/if-itb/siasn-jf-backend/store/models"
 	"time"
+
+	"github.com/fazrithe/siasn-jf-backend-git/store/models"
 )
 
 const (

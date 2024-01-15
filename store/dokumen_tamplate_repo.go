@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/fazrithe/siasn-jf-backend-git/store/models"
 	"github.com/google/uuid"
-	"github.com/if-itb/siasn-jf-backend/store/models"
 )
 
 func (c *Client) InsertDokumenTemplateCtx(ctx context.Context, request *models.Dokumen_tamplate) (dokumenId string, err error) {

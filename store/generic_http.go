@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"path"
 
+	. "github.com/fazrithe/siasn-jf-backend-git/errnum"
 	"github.com/gorilla/mux"
-	. "github.com/if-itb/siasn-jf-backend/errnum"
 	"github.com/if-itb/siasn-libs-backend/auth"
 	"github.com/if-itb/siasn-libs-backend/ec"
 	"github.com/if-itb/siasn-libs-backend/httputil"

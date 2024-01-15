@@ -7,10 +7,10 @@ import (
 	"path"
 	"time"
 
+	. "github.com/fazrithe/siasn-jf-backend-git/errnum"
+	"github.com/fazrithe/siasn-jf-backend-git/store/models"
+	"github.com/fazrithe/siasn-jf-backend-git/store/object"
 	"github.com/google/uuid"
-	. "github.com/if-itb/siasn-jf-backend/errnum"
-	"github.com/if-itb/siasn-jf-backend/store/models"
-	"github.com/if-itb/siasn-jf-backend/store/object"
 	"github.com/if-itb/siasn-libs-backend/auth"
 	"github.com/if-itb/siasn-libs-backend/ec"
 	"github.com/if-itb/siasn-libs-backend/httputil"
