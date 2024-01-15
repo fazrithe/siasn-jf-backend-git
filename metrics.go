@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/if-itb/siasn-libs-backend/metricutil"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/metricutil"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )

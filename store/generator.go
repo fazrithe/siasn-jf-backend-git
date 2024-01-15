@@ -6,8 +6,8 @@ import (
 	"os"
 	"path"
 
+	"github.com/fazrithe/siasn-jf-backend-git/libs/docx"
 	"github.com/google/uuid"
-	"github.com/if-itb/siasn-libs-backend/docx"
 )
 
 const (

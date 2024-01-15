@@ -3,7 +3,7 @@ package models
 import (
 	"encoding/json"
 
-	"github.com/if-itb/siasn-libs-backend/search"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/search"
 )
 
 // IdPaginatedList is an alias of search.PaginatedList, but can be encoded into JSON with Bahasa

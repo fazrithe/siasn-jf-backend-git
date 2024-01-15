@@ -1,6 +1,6 @@
 package errnum
 
-import "github.com/if-itb/siasn-libs-backend/ec"
+import "github.com/fazrithe/siasn-jf-backend-git/libs/ec"
 
 const (
 	// ErrCodeDismissalAdmissionReasonEmpty - 19401: alasan_pemberhentian is empty.

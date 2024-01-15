@@ -1,6 +1,6 @@
 package errnum
 
-import "github.com/if-itb/siasn-libs-backend/ec"
+import "github.com/fazrithe/siasn-jf-backend-git/libs/ec"
 
 const (
 	// ErrCodeAssessmentTeamAdmissionAssessorCountEven - 18401: the number of assessors must be odd.

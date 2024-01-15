@@ -1,6 +1,6 @@
 package errnum
 
-import "github.com/if-itb/siasn-libs-backend/ec"
+import "github.com/fazrithe/siasn-jf-backend-git/libs/ec"
 
 const (
 	// ErrCodePromotionAdmissionGeneric - 13401: generic promotion admission error

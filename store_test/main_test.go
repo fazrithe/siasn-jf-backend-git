@@ -10,10 +10,10 @@ import (
 	"os"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/breaker"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/logutil"
 	"github.com/fazrithe/siasn-jf-backend-git/store"
 	"github.com/fazrithe/siasn-jf-backend-git/store/object"
-	"github.com/if-itb/siasn-libs-backend/breaker"
-	"github.com/if-itb/siasn-libs-backend/logutil"
 	. "github.com/onsi/gomega"
 )
 

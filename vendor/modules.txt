@@ -102,17 +102,6 @@ github.com/gorilla/mux
 # github.com/gorilla/schema v1.2.0
 ## explicit
 github.com/gorilla/schema
-# github.com/if-itb/siasn-libs-backend v1.8.2
-## explicit; go 1.17
-github.com/if-itb/siasn-libs-backend/auth
-github.com/if-itb/siasn-libs-backend/breaker
-github.com/if-itb/siasn-libs-backend/config
-github.com/if-itb/siasn-libs-backend/docx
-github.com/if-itb/siasn-libs-backend/ec
-github.com/if-itb/siasn-libs-backend/httputil
-github.com/if-itb/siasn-libs-backend/logutil
-github.com/if-itb/siasn-libs-backend/metricutil
-github.com/if-itb/siasn-libs-backend/search
 # github.com/jackc/chunkreader/v2 v2.0.1
 ## explicit; go 1.12
 github.com/jackc/chunkreader/v2

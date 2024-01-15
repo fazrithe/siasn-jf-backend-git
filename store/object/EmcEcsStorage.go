@@ -13,8 +13,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/logutil"
 	"github.com/google/uuid"
-	"github.com/if-itb/siasn-libs-backend/logutil"
 )
 
 type EmcEcsStorage struct {

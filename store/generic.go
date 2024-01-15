@@ -6,10 +6,10 @@ import (
 	"fmt"
 
 	. "github.com/fazrithe/siasn-jf-backend-git/errnum"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/auth"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/ec"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/metricutil"
 	"github.com/fazrithe/siasn-jf-backend-git/store/models"
-	"github.com/if-itb/siasn-libs-backend/auth"
-	"github.com/if-itb/siasn-libs-backend/ec"
-	"github.com/if-itb/siasn-libs-backend/metricutil"
 	"github.com/lib/pq"
 )
 

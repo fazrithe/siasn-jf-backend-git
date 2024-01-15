@@ -13,10 +13,10 @@ import (
 	"time"
 
 	. "github.com/fazrithe/siasn-jf-backend-git/errnum"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/ec"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/httputil"
 	"github.com/fazrithe/siasn-jf-backend-git/store/models"
 	"github.com/google/uuid"
-	"github.com/if-itb/siasn-libs-backend/ec"
-	"github.com/if-itb/siasn-libs-backend/httputil"
 )
 
 const (

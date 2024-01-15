@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/auth"
 	"github.com/fazrithe/siasn-jf-backend-git/store/models"
 	"github.com/google/uuid"
-	"github.com/if-itb/siasn-libs-backend/auth"
 	"github.com/lib/pq"
 	. "github.com/onsi/gomega"
 )

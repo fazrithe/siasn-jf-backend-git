@@ -1,6 +1,6 @@
 package errnum
 
-import "github.com/if-itb/siasn-libs-backend/ec"
+import "github.com/fazrithe/siasn-jf-backend-git/libs/ec"
 
 // IsClientError checks whether an instance of ec.Error is a client side error.
 func IsClientError(err *ec.Error) bool {

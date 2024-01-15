@@ -6,13 +6,13 @@ import (
 	"net/http"
 
 	. "github.com/fazrithe/siasn-jf-backend-git/errnum"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/auth"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/ec"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/httputil"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/metricutil"
 	"github.com/fazrithe/siasn-jf-backend-git/store"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/if-itb/siasn-libs-backend/auth"
-	"github.com/if-itb/siasn-libs-backend/ec"
-	"github.com/if-itb/siasn-libs-backend/httputil"
-	"github.com/if-itb/siasn-libs-backend/metricutil"
 )
 
 func createRouter(
