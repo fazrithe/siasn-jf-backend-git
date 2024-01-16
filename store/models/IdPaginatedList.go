@@ -8,15 +8,15 @@ import (
 
 // IdPaginatedList is an alias of search.PaginatedList, but can be encoded into JSON with Bahasa
 // Indonesia fields.
-type IdPaginatedList search.PaginatedList
+type IdPaginatedList[T any] search.PaginatedList[T]
 
-type rawIdPaginatedList struct {
-	Data     interface{}              `json:"data"`
+type rawIdPaginatedList[T any] struct {
+	Data     []T                      `json:"data"`
 	Metadata *IdPaginatedListMetadata `json:"metadata"`
 }
 
-func (i IdPaginatedList) MarshalJSON() ([]byte, error) {
-	r := &rawIdPaginatedList{Data: i.Data, Metadata: (*IdPaginatedListMetadata)(i.Metadata)}
+func (i IdPaginatedList[T]) MarshalJSON() ([]byte, error) {
+	r := &rawIdPaginatedList[T]{Data: i.Data, Metadata: (*IdPaginatedListMetadata)(i.Metadata)}
 	return json.Marshal(r)
 }
 
