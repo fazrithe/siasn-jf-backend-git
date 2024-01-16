@@ -243,7 +243,7 @@ func (c *Client) HandleAssessmentTeamSearch(writer http.ResponseWriter, request 
 		return
 	}
 
-	_ = httputil.WriteObj200(writer, (*models.IdPaginatedList)(admissions))
+	_ = httputil.WriteObj200(writer, admissions)
 }
 
 // HandleAssessmentTeamVerificationRecommendationLetterUpload handles a request to upload a verification recommendation letter.

@@ -625,7 +625,7 @@ func (c *Client) HandlePromotionAdmissionSearchPaginated(writer http.ResponseWri
 		return
 	}
 
-	_ = httputil.WriteObj200(writer, (*models.IdPaginatedList)(admissions))
+	_ = httputil.WriteObj200(writer, admissions)
 }
 
 // HandleGetPromotionStatusStatistic returns the number of promotion items for each status.

@@ -108,7 +108,7 @@ from pengangkatan_cpns where pengangkatan_cpns_id = $1
 
 // SearchPromotionCpnsAdmissionsPaginatedCtx searches for the list of CPNS promotion admissions.
 // It will return empty slice if no admissions are found.
-func (c *Client) SearchPromotionCpnsAdmissionsPaginatedCtx(ctx context.Context, filter *PromotionCpnsAdmissionSearchFilter) (result *search.PaginatedList, err error) {
+func (c *Client) SearchPromotionCpnsAdmissionsPaginatedCtx(ctx context.Context, filter *PromotionCpnsAdmissionSearchFilter) (result *search.PaginatedList[*models.PromotionCpnsItem], err error) {
 	mdb := metricutil.NewDB(c.Db, c.SqlMetrics)
 	profileMdb := metricutil.NewDB(c.ProfileDb, c.SqlMetrics)
 	referenceMtx, err := c.createMtxDb(ctx, c.ReferenceDb)
@@ -204,7 +204,7 @@ from pengangkatan_cpns where ($1 <= 0 or status = $1) and ($2::date is null or t
 		a.OrganizationUnit = unors[a.OrganizationUnitId]
 	}
 
-	return &search.PaginatedList{
+	return &search.PaginatedList[*models.PromotionCpnsItem]{
 		Data:     admissions,
 		Metadata: search.CreatePaginatedListMetadataNoTotalNext(filter.PageNumber, len(admissions), hasNext),
 	}, nil

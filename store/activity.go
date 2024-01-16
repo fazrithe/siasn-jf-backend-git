@@ -14,11 +14,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fazrithe/siasn-jf-backend-git/libs/metricutil"
+
 	. "github.com/fazrithe/siasn-jf-backend-git/errnum"
 	"github.com/fazrithe/siasn-jf-backend-git/libs/auth"
 	"github.com/fazrithe/siasn-jf-backend-git/libs/docx"
 	"github.com/fazrithe/siasn-jf-backend-git/libs/ec"
-	"github.com/fazrithe/siasn-jf-backend-git/libs/metricutil"
 	"github.com/fazrithe/siasn-jf-backend-git/libs/search"
 	"github.com/fazrithe/siasn-jf-backend-git/store/models"
 	"github.com/fazrithe/siasn-jf-backend-git/store/object"
@@ -655,7 +656,7 @@ func (c *Client) SearchActivityAdmissionsCtx(ctx context.Context, searchFilter *
 // SearchActivityAdmissionsPaginatedCtx searches for the list of activity admissions of a particular
 // work agency ID (instansi kerja).
 // It will return empty slice if no admissions are found.
-func (c *Client) SearchActivityAdmissionsPaginatedCtx(ctx context.Context, filter *ActivityAdmissionSearchFilter) (result *search.PaginatedList, err error) {
+func (c *Client) SearchActivityAdmissionsPaginatedCtx(ctx context.Context, filter *ActivityAdmissionSearchFilter) (result *search.PaginatedList[*models.ActivityAdmission], err error) {
 	mdb := metricutil.NewDB(c.Db, c.SqlMetrics)
 
 	admissionRows, err := mdb.QueryContext(
@@ -708,7 +709,7 @@ func (c *Client) SearchActivityAdmissionsPaginatedCtx(ctx context.Context, filte
 		admissions = admissions[:filter.CountPerPage]
 	}
 
-	return &search.PaginatedList{
+	return &search.PaginatedList[*models.ActivityAdmission]{
 		Data:     admissions,
 		Metadata: search.CreatePaginatedListMetadataNoTotalNext(filter.PageNumber, len(admissions), hasNext),
 	}, nil

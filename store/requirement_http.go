@@ -402,7 +402,7 @@ func (c *Client) HandleRequirementAdmissionSearchPaginated(writer http.ResponseW
 		return
 	}
 
-	_ = httputil.WriteObj200(writer, (*models.IdPaginatedList)(admissions))
+	_ = httputil.WriteObj200(writer, admissions)
 }
 
 // HandleRequirementAdmissionDetailGet handles a request to get admission detail with matched id.

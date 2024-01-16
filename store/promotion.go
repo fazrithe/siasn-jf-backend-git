@@ -340,7 +340,7 @@ func (c *Client) SetPromotionStatusRejectCtx(ctx context.Context, promotion *mod
 
 // SearchPromotionAdmissionsPaginatedCtx searches for the list of promotion admissions.
 // It will return empty slice if no admissions are found.
-func (c *Client) SearchPromotionAdmissionsPaginatedCtx(ctx context.Context, filter *PromotionAdmissionSearchFilter) (result *search.PaginatedList, err error) {
+func (c *Client) SearchPromotionAdmissionsPaginatedCtx(ctx context.Context, filter *PromotionAdmissionSearchFilter) (result *search.PaginatedList[*models.PromotionItem], err error) {
 	mdb := metricutil.NewDB(c.Db, c.SqlMetrics)
 	profileMdb := metricutil.NewDB(c.ProfileDb, c.SqlMetrics)
 
@@ -412,7 +412,7 @@ func (c *Client) SearchPromotionAdmissionsPaginatedCtx(ctx context.Context, filt
 		admissions = admissions[:filter.CountPerPage]
 	}
 
-	return &search.PaginatedList{
+	return &search.PaginatedList[*models.PromotionItem]{
 		Data:     admissions,
 		Metadata: search.CreatePaginatedListMetadataNoTotalNext(filter.PageNumber, len(admissions), hasNext),
 	}, nil

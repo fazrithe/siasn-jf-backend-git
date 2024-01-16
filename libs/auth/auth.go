@@ -14,13 +14,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/fazrithe/siasn-jf-backend-git/libs/ec"
 	"github.com/fazrithe/siasn-jf-backend-git/libs/httputil"
 	"github.com/fazrithe/siasn-jf-backend-git/libs/logutil"
-	"github.com/fazrithe/siasn-jf-backend-git/libs/metricutil"
-
-	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/google/uuid"
+	"github.com/if-itb/siasn-libs-backend/libs/metricutil"
 	"golang.org/x/oauth2"
 	"gopkg.in/square/go-jose.v2/jwt"
 )
@@ -82,7 +81,6 @@ type Auth struct {
 	verifier           *oidc.IDTokenVerifier
 	SuccessRedirectUrl string
 	EndSessionEndpoint string
-	Db                 *sql.DB
 	ProfileDb          *sql.DB
 	ReferenceDb        *sql.DB
 	SqlMetrics         metricutil.GenericSqlMetrics
@@ -129,7 +127,6 @@ type Asn struct {
 	BracketId                   string `json:"golongan_id"`
 	Bracket                     string `json:"golongan"`
 	Rank                        string `json:"pangkat"`
-	IsSupervisor                bool   `json:"sbg_atasan"`
 	// AccessToken is retrieved usually from cache, and cannot be nil as to retrieve user detail, access token is
 	// required. See also UserDetailAuthHandler.
 	AccessToken *AccessToken `json:"-"`
@@ -137,7 +134,7 @@ type Asn struct {
 
 func NewAuth(
 	providerUrl string,
-	Db, profileDb, referenceDb *sql.DB,
+	profileDb, referenceDb *sql.DB,
 	clientId, clientSecret, endSessionEndpoint, redirectUrl, successRedirectUrl string,
 ) (*Auth, error) {
 	provider, err := oidc.NewProvider(context.Background(), providerUrl)
@@ -165,7 +162,6 @@ func NewAuth(
 		verifier:           provider.Verifier(&oidc.Config{ClientID: clientId}),
 		SuccessRedirectUrl: successRedirectUrl,
 		EndSessionEndpoint: endSessionEndpoint,
-		Db:                 Db,
 		ProfileDb:          profileDb,
 		ReferenceDb:        referenceDb,
 		LoginChecker:       &NoopLoginChecker{},
@@ -324,22 +320,6 @@ where nip_baru = $1 and ($2::text is null or $2 = '' or instansi_kerja_id = $2) 
 	return user, nil
 }
 
-// Check if the user have supervisor requirement task
-func (a *Auth) checkSupervisorStatus(ctx context.Context, idAsn string) (isSupervisor bool) {
-	mdb := metricutil.NewDB(a.Db, a.SqlMetrics)
-
-	var err error
-	reportCount := 0
-	err = mdb.QueryRowContext(ctx, "select count(*) from pelaporan where id_atasan_langsung_terlapor = $1 and tingkat_hukuman_disiplin = 1", idAsn).Scan(&reportCount)
-	if err != nil {
-		return false
-	}
-	if reportCount > 0 {
-		return true
-	}
-	return false
-}
-
 // CreateAuthUrl create an authentication URL.
 // The user can be redirected to the auth URL when they are unauthenticated.
 func (a *Auth) CreateAuthUrl(prompt, state string) (url string, err error) {
@@ -391,8 +371,6 @@ func (a *Auth) LoginHandler(writer http.ResponseWriter, request *http.Request) {
 
 // OidcHandler handles request to the redirect URL registered in the identity provider.
 func (a *Auth) OidcHandler(writer http.ResponseWriter, request *http.Request) {
-	ctx := request.Context()
-
 	oidcError := request.FormValue("error")
 	if oidcError != "" {
 		if oidcError == "login_required" {
@@ -476,7 +454,7 @@ func (a *Auth) OidcHandler(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	userId := strings.TrimPrefix(claims.PreferredUsername, "dummy:")
-	asn, err := a.GetUserDetail(ctx, userId, "")
+	asn, err := a.GetUserDetail(context.Background(), userId, "")
 	if err != nil {
 		a.Logger.Warnf("cannot get ASN detail: %s", err)
 		_ = httputil.WriteObj(writer, err, http.StatusInternalServerError)
@@ -494,10 +472,6 @@ func (a *Auth) OidcHandler(writer http.ResponseWriter, request *http.Request) {
 	err = a.LoginChecker.CheckLogin(writer, idToken, asn)
 	if err != nil {
 		return
-	}
-
-	if a.checkSupervisorStatus(ctx, asn.AsnId) {
-		claims.IsSupervisor = true
 	}
 
 	if a.AccessTokenCache != nil {
@@ -746,7 +720,6 @@ func (a *Auth) UserDetailAuthHandler(next http.Handler) http.Handler {
 		userDetail.Email = user.Email
 		userDetail.Username = user.PreferredUsername
 		userDetail.AccessToken = user.AccessToken
-		userDetail.IsSupervisor = user.AccessToken.IsSupervisor
 
 		if userDetail.WorkAgencyId == "" {
 			_ = httputil.WriteObj(writer, ec.NewErrorBasic(ErrCodeNoWorkAgencyId, ErrMessageNoWorkAgencyId), http.StatusForbidden)

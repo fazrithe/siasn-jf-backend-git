@@ -78,7 +78,7 @@ func (c *Client) HandlePromotionCpnsAdmissionSearchPaginated(writer http.Respons
 		return
 	}
 
-	_ = httputil.WriteObj200(writer, (*models.IdPaginatedList)(result))
+	_ = httputil.WriteObj200(writer, result)
 }
 
 // HandlePromotionCpnsAdmissionPakLetterUpload handles a request to upload a cpns promotion admission PAK letter.

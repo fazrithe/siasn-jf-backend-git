@@ -40,7 +40,6 @@ type AccessToken struct {
 	Sub            string                 `json:"sub"`
 	Typ            string                 `json:"typ"`
 	Optional       interface{}            `json:"optional"`
-	IsSupervisor   bool                   `json:"-"`
 }
 
 type AccessTokenRole struct {
@@ -49,6 +48,15 @@ type AccessTokenRole struct {
 }
 
 func (token *AccessToken) GetRoles() (roles []*AccessTokenRole) {
+	if token.RealmAccess != nil && token.RealmAccess.Roles != nil {
+		for _, realmRole := range token.RealmAccess.Roles {
+			roles = append(roles, &AccessTokenRole{
+				Role:     realmRole,
+				RoleType: "realm",
+			})
+		}
+	}
+
 	if token.ResourceAccess != nil {
 		for key, value := range token.ResourceAccess {
 			var v map[string]interface{}
@@ -56,11 +64,6 @@ func (token *AccessToken) GetRoles() (roles []*AccessTokenRole) {
 			if v, ok = value.(map[string]interface{}); !ok {
 				continue
 			}
-
-			fmt.Printf("key: %v\n", key)
-			fmt.Printf("value: %v\n", value)
-			fmt.Printf("v: %v\n", v["roles"])
-			fmt.Printf("v[roles]: %v\n", v["roles"])
 
 			var r []interface{}
 			if rawRoles, ok := v["roles"]; ok {
@@ -80,13 +83,6 @@ func (token *AccessToken) GetRoles() (roles []*AccessTokenRole) {
 				}
 			}
 		}
-	}
-
-	if token.IsSupervisor {
-		roles = append(roles, &AccessTokenRole{
-			Role:     "supervisor",
-			RoleType: "idis",
-		})
 	}
 
 	return roles
