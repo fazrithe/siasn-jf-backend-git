@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 )
 
 type JSON struct {
@@ -108,9 +107,6 @@ func (src *JSON) AssignTo(dst interface{}) error {
 			data = []byte("null")
 		}
 
-		p := reflect.ValueOf(dst).Elem()
-		p.Set(reflect.Zero(p.Type()))
-
 		return json.Unmarshal(data, dst)
 	}
 
@@ -202,9 +198,8 @@ func (dst *JSON) UnmarshalJSON(b []byte) error {
 	if b == nil || string(b) == "null" {
 		*dst = JSON{Status: Null}
 	} else {
-		bCopy := make([]byte, len(b))
-		copy(bCopy, b)
-		*dst = JSON{Bytes: bCopy, Status: Present}
+		*dst = JSON{Bytes: b, Status: Present}
 	}
 	return nil
+
 }

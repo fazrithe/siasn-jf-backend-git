@@ -50,7 +50,6 @@ func (cc *ConnConfig) Copy() *ConnConfig {
 	return newConfig
 }
 
-// ConnString returns the connection string as parsed by pgx.ParseConfig into pgx.ConnConfig.
 func (cc *ConnConfig) ConnString() string { return cc.connString }
 
 // BuildStatementCacheFunc is a function that can be used to create a stmtcache.Cache implementation for connection.
@@ -73,8 +72,9 @@ type Conn struct {
 
 	connInfo *pgtype.ConnInfo
 
-	wbuf []byte
-	eqb  extendedQueryBuilder
+	wbuf             []byte
+	preallocatedRows []connRows
+	eqb              extendedQueryBuilder
 }
 
 // Identifier a PostgreSQL identifier or name. Identifiers can be composed of
@@ -107,8 +107,8 @@ func Connect(ctx context.Context, connString string) (*Conn, error) {
 	return connect(ctx, connConfig)
 }
 
-// ConnectConfig establishes a connection with a PostgreSQL server with a configuration struct.
-// connConfig must have been created by ParseConfig.
+// Connect establishes a connection with a PostgreSQL server with a configuration struct. connConfig must have been
+// created by ParseConfig.
 func ConnectConfig(ctx context.Context, connConfig *ConnConfig) (*Conn, error) {
 	return connect(ctx, connConfig)
 }
@@ -116,14 +116,14 @@ func ConnectConfig(ctx context.Context, connConfig *ConnConfig) (*Conn, error) {
 // ParseConfig creates a ConnConfig from a connection string. ParseConfig handles all options that pgconn.ParseConfig
 // does. In addition, it accepts the following options:
 //
-//	statement_cache_capacity
-//		The maximum size of the automatic statement cache. Set to 0 to disable automatic statement caching. Default: 512.
+// 	statement_cache_capacity
+// 		The maximum size of the automatic statement cache. Set to 0 to disable automatic statement caching. Default: 512.
 //
-//	statement_cache_mode
-//		Possible values: "prepare" and "describe". "prepare" will create prepared statements on the PostgreSQL server.
-//		"describe" will use the anonymous prepared statement to describe a statement without creating a statement on the
-//		server. "describe" is primarily useful when the environment does not allow prepared statements such as when
-//		running a connection pooler like PgBouncer. Default: "prepare"
+// 	statement_cache_mode
+// 		Possible values: "prepare" and "describe". "prepare" will create prepared statements on the PostgreSQL server.
+// 		"describe" will use the anonymous prepared statement to describe a statement without creating a statement on the
+// 		server. "describe" is primarily useful when the environment does not allow prepared statements such as when
+// 		running a connection pooler like PgBouncer. Default: "prepare"
 //
 //	prefer_simple_protocol
 //		Possible values: "true" and "false". Use the simple protocol instead of extended protocol. Default: false
@@ -324,7 +324,6 @@ func (c *Conn) WaitForNotification(ctx context.Context) (*pgconn.Notification, e
 	return n, err
 }
 
-// IsClosed reports if the connection has been closed.
 func (c *Conn) IsClosed() bool {
 	return c.pgConn.IsClosed()
 }
@@ -358,11 +357,33 @@ func quoteIdentifier(s string) string {
 	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
 }
 
-// Ping executes an empty sql statement against the *Conn
-// If the sql returns without error, the database Ping is considered successful, otherwise, the error is returned.
 func (c *Conn) Ping(ctx context.Context) error {
 	_, err := c.Exec(ctx, ";")
 	return err
+}
+
+func connInfoFromRows(rows Rows, err error) (map[string]uint32, error) {
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	nameOIDs := make(map[string]uint32, 256)
+	for rows.Next() {
+		var oid uint32
+		var name pgtype.Text
+		if err = rows.Scan(&oid, &name); err != nil {
+			return nil, err
+		}
+
+		nameOIDs[name.String] = oid
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return nameOIDs, err
 }
 
 // PgConn returns the underlying *pgconn.PgConn. This is an escape hatch method that allows lower level access to the
@@ -389,8 +410,7 @@ func (c *Conn) Exec(ctx context.Context, sql string, arguments ...interface{}) (
 	commandTag, err := c.exec(ctx, sql, arguments...)
 	if err != nil {
 		if c.shouldLog(LogLevelError) {
-			endTime := time.Now()
-			c.log(ctx, LogLevelError, "Exec", map[string]interface{}{"sql": sql, "args": logQueryArgs(arguments), "err": err, "time": endTime.Sub(startTime)})
+			c.log(ctx, LogLevelError, "Exec", map[string]interface{}{"sql": sql, "args": logQueryArgs(arguments), "err": err})
 		}
 		return commandTag, err
 	}
@@ -497,7 +517,6 @@ func (c *Conn) execParams(ctx context.Context, sd *pgconn.StatementDescription, 
 	}
 
 	result := c.pgConn.ExecParams(ctx, sd.SQL, c.eqb.paramValues, sd.ParamOIDs, c.eqb.paramFormats, c.eqb.resultFormats).Read()
-	c.eqb.Reset() // Allow c.eqb internal memory to be GC'ed as soon as possible.
 	return result.CommandTag, result.Err
 }
 
@@ -508,12 +527,16 @@ func (c *Conn) execPrepared(ctx context.Context, sd *pgconn.StatementDescription
 	}
 
 	result := c.pgConn.ExecPrepared(ctx, sd.Name, c.eqb.paramValues, c.eqb.paramFormats, c.eqb.resultFormats).Read()
-	c.eqb.Reset() // Allow c.eqb internal memory to be GC'ed as soon as possible.
 	return result.CommandTag, result.Err
 }
 
 func (c *Conn) getRows(ctx context.Context, sql string, args []interface{}) *connRows {
-	r := &connRows{}
+	if len(c.preallocatedRows) == 0 {
+		c.preallocatedRows = make([]connRows, 64)
+	}
+
+	r := &c.preallocatedRows[len(c.preallocatedRows)-1]
+	c.preallocatedRows = c.preallocatedRows[0 : len(c.preallocatedRows)-1]
 
 	r.ctx = ctx
 	r.logger = c
@@ -535,16 +558,8 @@ type QueryResultFormats []int16
 // QueryResultFormatsByOID controls the result format (text=0, binary=1) of a query by the result column OID.
 type QueryResultFormatsByOID map[uint32]int16
 
-// Query sends a query to the server and returns a Rows to read the results. Only errors encountered sending the query
-// and initializing Rows will be returned. Err() on the returned Rows must be checked after the Rows is closed to
-// determine if the query executed successfully.
-//
-// The returned Rows must be closed before the connection can be used again. It is safe to attempt to read from the
-// returned Rows even if an error is returned. The error will be the available in rows.Err() after rows are closed. It
-// is allowed to ignore the error returned from Query and handle it in Rows.
-//
-// Err() on the returned Rows must be checked after the Rows is closed to determine if the query executed successfully
-// as some errors can only be detected by reading the entire response. e.g. A divide by zero error on the last row.
+// Query executes sql with args. If there is an error the returned Rows will be returned in an error state. So it is
+// allowed to ignore the error returned from Query and handle it in Rows.
 //
 // For extra control over how the query is executed, the types QuerySimpleProtocol, QueryResultFormats, and
 // QueryResultFormatsByOID may be used as the first args to control exactly how the query is executed. This is rarely
@@ -649,13 +664,11 @@ optionLoop:
 		resultFormats = c.eqb.resultFormats
 	}
 
-	if c.stmtcache != nil && c.stmtcache.Mode() == stmtcache.ModeDescribe && !ok {
+	if c.stmtcache != nil && c.stmtcache.Mode() == stmtcache.ModeDescribe {
 		rows.resultReader = c.pgConn.ExecParams(ctx, sql, c.eqb.paramValues, sd.ParamOIDs, c.eqb.paramFormats, resultFormats)
 	} else {
 		rows.resultReader = c.pgConn.ExecPrepared(ctx, sd.Name, c.eqb.paramValues, c.eqb.paramFormats, resultFormats)
 	}
-
-	c.eqb.Reset() // Allow c.eqb internal memory to be GC'ed as soon as possible.
 
 	return rows, rows.err
 }
@@ -714,8 +727,6 @@ func (c *Conn) QueryFunc(ctx context.Context, sql string, args []interface{}, sc
 // explicit transaction control statements are executed. The returned BatchResults must be closed before the connection
 // is used again.
 func (c *Conn) SendBatch(ctx context.Context, b *Batch) BatchResults {
-	startTime := time.Now()
-
 	simpleProtocol := c.config.PreferSimpleProtocol
 	var sb strings.Builder
 	if simpleProtocol {
@@ -774,23 +785,24 @@ func (c *Conn) SendBatch(ctx context.Context, b *Batch) BatchResults {
 			var err error
 			sd, err = stmtCache.Get(ctx, bi.query)
 			if err != nil {
-				return c.logBatchResults(ctx, startTime, &batchResults{ctx: ctx, conn: c, err: err})
+				// the stmtCache was prefilled from distinctUnpreparedQueries above so we are guaranteed no errors
+				panic("BUG: unexpected error from stmtCache")
 			}
 		}
 
 		if len(sd.ParamOIDs) != len(bi.arguments) {
-			return c.logBatchResults(ctx, startTime, &batchResults{ctx: ctx, conn: c, err: fmt.Errorf("mismatched param and argument count")})
+			return &batchResults{ctx: ctx, conn: c, err: fmt.Errorf("mismatched param and argument count")}
 		}
 
 		args, err := convertDriverValuers(bi.arguments)
 		if err != nil {
-			return c.logBatchResults(ctx, startTime, &batchResults{ctx: ctx, conn: c, err: err})
+			return &batchResults{ctx: ctx, conn: c, err: err}
 		}
 
 		for i := range args {
 			err = c.eqb.AppendParam(c.connInfo, sd.ParamOIDs[i], args[i])
 			if err != nil {
-				return c.logBatchResults(ctx, startTime, &batchResults{ctx: ctx, conn: c, err: err})
+				return &batchResults{ctx: ctx, conn: c, err: err}
 			}
 		}
 
@@ -805,34 +817,15 @@ func (c *Conn) SendBatch(ctx context.Context, b *Batch) BatchResults {
 		}
 	}
 
-	c.eqb.Reset() // Allow c.eqb internal memory to be GC'ed as soon as possible.
-
 	mrr := c.pgConn.ExecBatch(ctx, batch)
 
-	return c.logBatchResults(ctx, startTime, &batchResults{
+	return &batchResults{
 		ctx:  ctx,
 		conn: c,
 		mrr:  mrr,
 		b:    b,
 		ix:   0,
-	})
-}
-
-func (c *Conn) logBatchResults(ctx context.Context, startTime time.Time, results *batchResults) BatchResults {
-	if results.err != nil {
-		if c.shouldLog(LogLevelError) {
-			endTime := time.Now()
-			c.log(ctx, LogLevelError, "SendBatch", map[string]interface{}{"err": results.err, "time": endTime.Sub(startTime)})
-		}
-		return results
 	}
-
-	if c.shouldLog(LogLevelInfo) {
-		endTime := time.Now()
-		c.log(ctx, LogLevelInfo, "SendBatch", map[string]interface{}{"batchLen": results.b.Len(), "time": endTime.Sub(startTime)})
-	}
-
-	return results
 }
 
 func (c *Conn) sanitizeForSimpleQuery(sql string, args ...interface{}) (string, error) {

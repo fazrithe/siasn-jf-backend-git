@@ -274,7 +274,7 @@ func (c *Client) SearchDismissalAdmissionsCtx(ctx context.Context, admissionDate
 }
 
 // SearchDismissalAdmissionsPaginatedCtx searches for dismissal admissions based on admission date and status in an agency.
-func (c *Client) SearchDismissalAdmissionsPaginatedCtx(ctx context.Context, admissionDate models.Iso8601Date, status int, agencyId string, pageNumber, countPerPage int) (result *search.PaginatedList[*models.DismissalAdmission], err error) {
+func (c *Client) SearchDismissalAdmissionsPaginatedCtx(ctx context.Context, admissionDate models.Iso8601Date, status int, agencyId string, pageNumber, countPerPage int) (result *search.PaginatedList, err error) {
 	mdb := metricutil.NewDB(c.Db, c.SqlMetrics)
 	rows, err := mdb.QueryContext(
 		ctx,
@@ -364,7 +364,7 @@ func (c *Client) SearchDismissalAdmissionsPaginatedCtx(ctx context.Context, admi
 		d.AsnName = asnNameMap[d.AsnId]
 	}
 
-	return &search.PaginatedList[*models.DismissalAdmission]{
+	return &search.PaginatedList{
 		Data:     dismissals,
 		Metadata: search.CreatePaginatedListMetadataNoTotalNext(pageNumber, len(dismissals), hasNext),
 	}, nil

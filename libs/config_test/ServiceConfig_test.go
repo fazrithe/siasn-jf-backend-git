@@ -2,7 +2,7 @@ package config_test
 
 import (
 	"fmt"
-	"github.com/if-itb/siasn-libs-backend/config"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/config"
 	"log"
 	"os"
 	"reflect"

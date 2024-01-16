@@ -185,8 +185,7 @@ func (cd *Cache) set(item *Item) ([]byte, bool, error) {
 
 // Exists reports whether value for the given key exists.
 func (cd *Cache) Exists(ctx context.Context, key string) bool {
-	_, err := cd.getBytes(ctx, key, false)
-	return err == nil
+	return cd.Get(ctx, key, nil) == nil
 }
 
 // Get gets the value for the given key.

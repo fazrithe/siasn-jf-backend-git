@@ -22,7 +22,7 @@ for a particular service/package/feature that you implement.
 
 ```go
 import (
-    "github.com/if-itb/siasn-libs-backend/config"
+    "github.com/fazrithe/siasn-jf-backend-git/libs/config"
 )
 
 type MyConfig struct {

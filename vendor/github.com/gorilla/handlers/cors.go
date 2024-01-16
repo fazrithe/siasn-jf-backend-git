@@ -26,14 +26,14 @@ type cors struct {
 type OriginValidator func(string) bool
 
 var (
-	defaultCorsOptionStatusCode = http.StatusOK
-	defaultCorsMethods          = []string{http.MethodGet, http.MethodHead, http.MethodPost}
+	defaultCorsOptionStatusCode = 200
+	defaultCorsMethods          = []string{"GET", "HEAD", "POST"}
 	defaultCorsHeaders          = []string{"Accept", "Accept-Language", "Content-Language", "Origin"}
-	// (WebKit/Safari v9 sends the Origin header by default in AJAX requests).
+	// (WebKit/Safari v9 sends the Origin header by default in AJAX requests)
 )
 
 const (
-	corsOptionMethod           string = http.MethodOptions
+	corsOptionMethod           string = "OPTIONS"
 	corsAllowOriginHeader      string = "Access-Control-Allow-Origin"
 	corsExposeHeadersHeader    string = "Access-Control-Expose-Headers"
 	corsMaxAgeHeader           string = "Access-Control-Max-Age"
@@ -101,8 +101,10 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if !ch.isMatch(method, defaultCorsMethods) {
 			w.Header().Set(corsAllowMethodsHeader, method)
 		}
-	} else if len(ch.exposedHeaders) > 0 {
-		w.Header().Set(corsExposeHeadersHeader, strings.Join(ch.exposedHeaders, ","))
+	} else {
+		if len(ch.exposedHeaders) > 0 {
+			w.Header().Set(corsExposeHeadersHeader, strings.Join(ch.exposedHeaders, ","))
+		}
 	}
 
 	if ch.allowCredentials {
@@ -139,21 +141,22 @@ func (ch *cors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // CORS provides Cross-Origin Resource Sharing middleware.
 // Example:
 //
-//	import (
-//	    "net/http"
+//  import (
+//      "net/http"
 //
-//	    "github.com/gorilla/handlers"
-//	    "github.com/gorilla/mux"
-//	)
+//      "github.com/gorilla/handlers"
+//      "github.com/gorilla/mux"
+//  )
 //
-//	func main() {
-//	    r := mux.NewRouter()
-//	    r.HandleFunc("/users", UserEndpoint)
-//	    r.HandleFunc("/projects", ProjectEndpoint)
+//  func main() {
+//      r := mux.NewRouter()
+//      r.HandleFunc("/users", UserEndpoint)
+//      r.HandleFunc("/projects", ProjectEndpoint)
 //
-//	    // Apply the CORS middleware to our top-level router, with the defaults.
-//	    http.ListenAndServe(":8000", handlers.CORS()(r))
-//	}
+//      // Apply the CORS middleware to our top-level router, with the defaults.
+//      http.ListenAndServe(":8000", handlers.CORS()(r))
+//  }
+//
 func CORS(opts ...CORSOption) func(http.Handler) http.Handler {
 	return func(h http.Handler) http.Handler {
 		ch := parseCORSOptions(opts...)
@@ -171,7 +174,7 @@ func parseCORSOptions(opts ...CORSOption) *cors {
 	}
 
 	for _, option := range opts {
-		_ = option(ch) //TODO: @bharat-rajani, return error to caller if not nil?
+		option(ch)
 	}
 
 	return ch

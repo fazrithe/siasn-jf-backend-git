@@ -562,7 +562,7 @@ func (c *Client) HandleActivityAdmissionSearchPaginated(writer http.ResponseWrit
 		return
 	}
 
-	_ = httputil.WriteObj200(writer, admissions)
+	_ = httputil.WriteObj200(writer, (*models.IdPaginatedList)(admissions))
 }
 
 // HandleActivityAdmissionSearchPembina handles a request to get admission list of a work agency.

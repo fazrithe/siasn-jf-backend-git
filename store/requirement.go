@@ -532,7 +532,7 @@ func (c *Client) SearchRequirementAdmissionsCtx(ctx context.Context, searchFilte
 
 // SearchRequirementAdmissionsPaginatedCtx searches for the list of requirement admissions of a particular work agency ID (instansi kerja).
 // It will return empty slice if no requirements are found.
-func (c *Client) SearchRequirementAdmissionsPaginatedCtx(ctx context.Context, filter *RequirementAdmissionSearchFilter) (result *search.PaginatedList[*models.RequirementAdmissionResult], err error) {
+func (c *Client) SearchRequirementAdmissionsPaginatedCtx(ctx context.Context, filter *RequirementAdmissionSearchFilter) (result *search.PaginatedList, err error) {
 	mdb := metricutil.NewDB(c.Db, c.SqlMetrics)
 
 	admissionRows, err := mdb.QueryContext(
@@ -575,7 +575,7 @@ func (c *Client) SearchRequirementAdmissionsPaginatedCtx(ctx context.Context, fi
 		admissions = admissions[:filter.CountPerPage]
 	}
 
-	return &search.PaginatedList[*models.RequirementAdmissionResult]{
+	return &search.PaginatedList{
 		Data:     admissions,
 		Metadata: search.CreatePaginatedListMetadataNoTotalNext(filter.PageNumber, len(admissions), hasNext),
 	}, nil

@@ -1,4 +1,4 @@
-module github.com/if-itb/siasn-libs-backend
+module github.com/fazrithe/siasn-jf-backend-git/libs
 
 go 1.18
 

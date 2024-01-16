@@ -2,49 +2,15 @@ package oidc
 
 import (
 	"context"
-	"crypto"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rsa"
 	"errors"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"sync"
 	"time"
 
-	jose "github.com/go-jose/go-jose/v3"
+	jose "gopkg.in/square/go-jose.v2"
 )
-
-// StaticKeySet is a verifier that validates JWT against a static set of public keys.
-type StaticKeySet struct {
-	// PublicKeys used to verify the JWT. Supported types are *rsa.PublicKey and
-	// *ecdsa.PublicKey.
-	PublicKeys []crypto.PublicKey
-}
-
-// VerifySignature compares the signature against a static set of public keys.
-func (s *StaticKeySet) VerifySignature(ctx context.Context, jwt string) ([]byte, error) {
-	jws, err := jose.ParseSigned(jwt)
-	if err != nil {
-		return nil, fmt.Errorf("parsing jwt: %v", err)
-	}
-	for _, pub := range s.PublicKeys {
-		switch pub.(type) {
-		case *rsa.PublicKey:
-		case *ecdsa.PublicKey:
-		case ed25519.PublicKey:
-		default:
-			return nil, fmt.Errorf("invalid public key type provided: %T", pub)
-		}
-		payload, err := jws.Verify(pub)
-		if err != nil {
-			continue
-		}
-		return payload, nil
-	}
-	return nil, fmt.Errorf("no public keys able to verify jwt")
-}
 
 // NewRemoteKeySet returns a KeySet that can validate JSON web tokens by using HTTP
 // GETs to fetch JSON web token sets hosted at a remote URL. This is automatically
@@ -62,7 +28,7 @@ func newRemoteKeySet(ctx context.Context, jwksURL string, now func() time.Time) 
 	if now == nil {
 		now = time.Now
 	}
-	return &RemoteKeySet{jwksURL: jwksURL, ctx: ctx, now: now}
+	return &RemoteKeySet{jwksURL: jwksURL, ctx: cloneContext(ctx), now: now}
 }
 
 // RemoteKeySet is a KeySet implementation that validates JSON web tokens against
@@ -115,23 +81,15 @@ func (i *inflight) result() ([]jose.JSONWebKey, error) {
 	return i.keys, i.err
 }
 
-// paresdJWTKey is a context key that allows common setups to avoid parsing the
-// JWT twice. It holds a *jose.JSONWebSignature value.
-var parsedJWTKey contextKey
-
 // VerifySignature validates a payload against a signature from the jwks_uri.
 //
 // Users MUST NOT call this method directly and should use an IDTokenVerifier
 // instead. This method skips critical validations such as 'alg' values and is
 // only exported to implement the KeySet interface.
 func (r *RemoteKeySet) VerifySignature(ctx context.Context, jwt string) ([]byte, error) {
-	jws, ok := ctx.Value(parsedJWTKey).(*jose.JSONWebSignature)
-	if !ok {
-		var err error
-		jws, err = jose.ParseSigned(jwt)
-		if err != nil {
-			return nil, fmt.Errorf("oidc: malformed jwt: %v", err)
-		}
+	jws, err := jose.ParseSigned(jwt)
+	if err != nil {
+		return nil, fmt.Errorf("oidc: malformed jwt: %v", err)
 	}
 	return r.verify(ctx, jws)
 }
@@ -159,7 +117,7 @@ func (r *RemoteKeySet) verify(ctx context.Context, jws *jose.JSONWebSignature) (
 	// https://openid.net/specs/openid-connect-core-1_0.html#RotateSigKeys
 	keys, err := r.keysFromRemote(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("fetching keys %w", err)
+		return nil, fmt.Errorf("fetching keys %v", err)
 	}
 
 	for _, key := range keys {
@@ -228,11 +186,11 @@ func (r *RemoteKeySet) updateKeys() ([]jose.JSONWebKey, error) {
 
 	resp, err := doRequest(r.ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("oidc: get keys failed %w", err)
+		return nil, fmt.Errorf("oidc: get keys failed %v", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read response body: %v", err)
 	}

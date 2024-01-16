@@ -2,18 +2,17 @@ package matchers
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 
 	"github.com/onsi/gomega/format"
-	"github.com/onsi/gomega/internal/gutil"
 	"github.com/onsi/gomega/types"
 )
 
 type HaveHTTPBodyMatcher struct {
-	Expected       interface{}
-	cachedResponse interface{}
-	cachedBody     []byte
+	Expected   interface{}
+	cachedBody []byte
 }
 
 func (matcher *HaveHTTPBodyMatcher) Match(actual interface{}) (bool, error) {
@@ -74,7 +73,7 @@ func (matcher *HaveHTTPBodyMatcher) NegatedFailureMessage(actual interface{}) (m
 // the Reader is closed and it is not readable again in FailureMessage()
 // or NegatedFailureMessage()
 func (matcher *HaveHTTPBodyMatcher) body(actual interface{}) ([]byte, error) {
-	if matcher.cachedResponse == actual && matcher.cachedBody != nil {
+	if matcher.cachedBody != nil {
 		return matcher.cachedBody, nil
 	}
 
@@ -82,7 +81,7 @@ func (matcher *HaveHTTPBodyMatcher) body(actual interface{}) ([]byte, error) {
 		if a.Body != nil {
 			defer a.Body.Close()
 			var err error
-			matcher.cachedBody, err = gutil.ReadAll(a.Body)
+			matcher.cachedBody, err = ioutil.ReadAll(a.Body)
 			if err != nil {
 				return nil, fmt.Errorf("error reading response body: %w", err)
 			}
@@ -92,10 +91,8 @@ func (matcher *HaveHTTPBodyMatcher) body(actual interface{}) ([]byte, error) {
 
 	switch a := actual.(type) {
 	case *http.Response:
-		matcher.cachedResponse = a
 		return body(a)
 	case *httptest.ResponseRecorder:
-		matcher.cachedResponse = a
 		return body(a.Result())
 	default:
 		return nil, fmt.Errorf("HaveHTTPBody matcher expects *http.Response or *httptest.ResponseRecorder. Got:\n%s", format.Object(actual, 1))

@@ -170,24 +170,6 @@ type envConfig struct {
 	//
 	// AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE=IPv6
 	EC2IMDSEndpointMode endpoints.EC2IMDSEndpointModeState
-
-	// Specifies that IMDS clients should not fallback to IMDSv1 if token
-	// requests fail.
-	//
-	// AWS_EC2_METADATA_V1_DISABLED=true
-	EC2IMDSv1Disabled *bool
-
-	// Specifies that SDK clients must resolve a dual-stack endpoint for
-	// services.
-	//
-	// AWS_USE_DUALSTACK_ENDPOINT=true
-	UseDualStackEndpoint endpoints.DualStackEndpointState
-
-	// Specifies that SDK clients must resolve a FIPS endpoint for
-	// services.
-	//
-	// AWS_USE_FIPS_ENDPOINT=true
-	UseFIPSEndpoint endpoints.FIPSEndpointState
 }
 
 var (
@@ -257,9 +239,6 @@ var (
 	ec2IMDSEndpointModeEnvKey = []string{
 		"AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE",
 	}
-	ec2MetadataV1DisabledEnvKey = []string{
-		"AWS_EC2_METADATA_V1_DISABLED",
-	}
 	useCABundleKey = []string{
 		"AWS_CA_BUNDLE",
 	}
@@ -268,12 +247,6 @@ var (
 	}
 	useClientTLSKey = []string{
 		"AWS_SDK_GO_CLIENT_TLS_KEY",
-	}
-	awsUseDualStackEndpoint = []string{
-		"AWS_USE_DUALSTACK_ENDPOINT",
-	}
-	awsUseFIPSEndpoint = []string{
-		"AWS_USE_FIPS_ENDPOINT",
 	}
 )
 
@@ -402,15 +375,6 @@ func envConfigLoad(enableSharedConfig bool) (envConfig, error) {
 	if err := setEC2IMDSEndpointMode(&cfg.EC2IMDSEndpointMode, ec2IMDSEndpointModeEnvKey); err != nil {
 		return envConfig{}, err
 	}
-	setBoolPtrFromEnvVal(&cfg.EC2IMDSv1Disabled, ec2MetadataV1DisabledEnvKey)
-
-	if err := setUseDualStackEndpointFromEnvVal(&cfg.UseDualStackEndpoint, awsUseDualStackEndpoint); err != nil {
-		return cfg, err
-	}
-
-	if err := setUseFIPSEndpointFromEnvVal(&cfg.UseFIPSEndpoint, awsUseFIPSEndpoint); err != nil {
-		return cfg, err
-	}
 
 	return cfg, nil
 }
@@ -420,24 +384,6 @@ func setFromEnvVal(dst *string, keys []string) {
 		if v := os.Getenv(k); len(v) != 0 {
 			*dst = v
 			break
-		}
-	}
-}
-
-func setBoolPtrFromEnvVal(dst **bool, keys []string) {
-	for _, k := range keys {
-		value := os.Getenv(k)
-		if len(value) == 0 {
-			continue
-		}
-
-		switch {
-		case strings.EqualFold(value, "false"):
-			*dst = new(bool)
-			**dst = false
-		case strings.EqualFold(value, "true"):
-			*dst = new(bool)
-			**dst = true
 		}
 	}
 }
@@ -452,48 +398,6 @@ func setEC2IMDSEndpointMode(mode *endpoints.EC2IMDSEndpointModeState, keys []str
 			return fmt.Errorf("invalid value for environment variable, %s=%s, %v", k, value, err)
 		}
 		return nil
-	}
-	return nil
-}
-
-func setUseDualStackEndpointFromEnvVal(dst *endpoints.DualStackEndpointState, keys []string) error {
-	for _, k := range keys {
-		value := os.Getenv(k)
-		if len(value) == 0 {
-			continue // skip if empty
-		}
-
-		switch {
-		case strings.EqualFold(value, "true"):
-			*dst = endpoints.DualStackEndpointStateEnabled
-		case strings.EqualFold(value, "false"):
-			*dst = endpoints.DualStackEndpointStateDisabled
-		default:
-			return fmt.Errorf(
-				"invalid value for environment variable, %s=%s, need true, false",
-				k, value)
-		}
-	}
-	return nil
-}
-
-func setUseFIPSEndpointFromEnvVal(dst *endpoints.FIPSEndpointState, keys []string) error {
-	for _, k := range keys {
-		value := os.Getenv(k)
-		if len(value) == 0 {
-			continue // skip if empty
-		}
-
-		switch {
-		case strings.EqualFold(value, "true"):
-			*dst = endpoints.FIPSEndpointStateEnabled
-		case strings.EqualFold(value, "false"):
-			*dst = endpoints.FIPSEndpointStateDisabled
-		default:
-			return fmt.Errorf(
-				"invalid value for environment variable, %s=%s, need true, false",
-				k, value)
-		}
 	}
 	return nil
 }

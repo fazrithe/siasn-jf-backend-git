@@ -45,7 +45,7 @@ func (dst *Point) Set(src interface{}) error {
 }
 
 func parsePoint(src []byte) (*Point, error) {
-	if src == nil || bytes.Equal(src, []byte("null")) {
+	if src == nil || bytes.Compare(src, []byte("null")) == 0 {
 		return &Point{Status: Null}, nil
 	}
 

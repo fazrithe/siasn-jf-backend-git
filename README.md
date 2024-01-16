@@ -199,6 +199,5 @@ This repository was built by:
 * Audie Masola Putra \[[audiemasola@potatobeans.id](mailto:audiemasola@potatobeans.id)]
 
 Copyright &copy; 2021 Indonesian National Civil Service Agency (Badan Kepegawaian Negara, BKN).  
-All rights reserved.#   s i a s n - j f - b a c k e n d - g i t  
- #   s i a s n - j f - b a c k e n d - g i t  
+All rights reserved.#   l i b s - b a c k e n d - v 2  
  

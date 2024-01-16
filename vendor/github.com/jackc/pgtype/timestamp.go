@@ -4,7 +4,6 @@ import (
 	"database/sql/driver"
 	"encoding/binary"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgio"
@@ -42,14 +41,6 @@ func (dst *Timestamp) Set(src interface{}) error {
 	case time.Time:
 		*dst = Timestamp{Time: time.Date(value.Year(), value.Month(), value.Day(), value.Hour(), value.Minute(), value.Second(), value.Nanosecond(), time.UTC), Status: Present}
 	case *time.Time:
-		if value == nil {
-			*dst = Timestamp{Status: Null}
-		} else {
-			return dst.Set(*value)
-		}
-	case string:
-		return dst.DecodeText(nil, []byte(value))
-	case *string:
 		if value == nil {
 			*dst = Timestamp{Status: Null}
 		} else {
@@ -119,15 +110,6 @@ func (dst *Timestamp) DecodeText(ci *ConnInfo, src []byte) error {
 	case "-infinity":
 		*dst = Timestamp{Status: Present, InfinityModifier: -Infinity}
 	default:
-		if strings.HasSuffix(sbuf, " BC") {
-			t, err := time.Parse(pgTimestampFormat, strings.TrimRight(sbuf, " BC"))
-			t2 := time.Date(1-t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
-			if err != nil {
-				return err
-			}
-			*dst = Timestamp{Time: t2, Status: Present}
-			return nil
-		}
 		tim, err := time.Parse(pgTimestampFormat, sbuf)
 		if err != nil {
 			return err
@@ -159,10 +141,8 @@ func (dst *Timestamp) DecodeBinary(ci *ConnInfo, src []byte) error {
 	case negativeInfinityMicrosecondOffset:
 		*dst = Timestamp{Status: Present, InfinityModifier: -Infinity}
 	default:
-		tim := time.Unix(
-			microsecFromUnixEpochToY2K/1000000+microsecSinceY2K/1000000,
-			(microsecFromUnixEpochToY2K%1000000*1000)+(microsecSinceY2K%1000000*1000),
-		).UTC()
+		microsecSinceUnixEpoch := microsecFromUnixEpochToY2K + microsecSinceY2K
+		tim := time.Unix(microsecSinceUnixEpoch/1000000, (microsecSinceUnixEpoch%1000000)*1000).UTC()
 		*dst = Timestamp{Time: tim, Status: Present}
 	}
 

@@ -7,8 +7,8 @@ http.Handlers.
 Doing this requires non-trivial wrapping of the http.ResponseWriter interface,
 which is also exposed for users interested in a more low-level API.
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/felixge/httpsnoop.svg)](https://pkg.go.dev/github.com/felixge/httpsnoop)
-[![Build Status](https://github.com/felixge/httpsnoop/actions/workflows/main.yaml/badge.svg)](https://github.com/felixge/httpsnoop/actions/workflows/main.yaml)
+[![GoDoc](https://godoc.org/github.com/felixge/httpsnoop?status.svg)](https://godoc.org/github.com/felixge/httpsnoop)
+[![Build Status](https://travis-ci.org/felixge/httpsnoop.svg?branch=master)](https://travis-ci.org/felixge/httpsnoop)
 
 ## Usage Example
 
@@ -65,8 +65,7 @@ being called, or called more than once, as well as concurrent calls to
 Unfortunately this package is not perfect either. It's possible that it is
 still missing some interfaces provided by the go core (let me know if you find
 one), and it won't work for applications adding their own interfaces into the
-mix. You can however use `httpsnoop.Unwrap(w)` to access the underlying
-`http.ResponseWriter` and type-assert the result to its other interfaces.
+mix.
 
 However, hopefully the explanation above has sufficiently scared you of rolling
 your own solution to this problem. httpsnoop may still break your application,

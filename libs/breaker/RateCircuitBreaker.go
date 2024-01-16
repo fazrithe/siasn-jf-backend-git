@@ -2,7 +2,7 @@
 package breaker
 
 import (
-	"github.com/if-itb/siasn-libs-backend/libs/logutil"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/logutil"
 	"sync"
 	"time"
 )

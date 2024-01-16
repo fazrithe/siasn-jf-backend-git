@@ -3,7 +3,6 @@ package pgtype
 import (
 	"database/sql/driver"
 	"encoding/binary"
-	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
@@ -302,20 +301,4 @@ func (src Int2) MarshalJSON() ([]byte, error) {
 	}
 
 	return nil, errBadStatus
-}
-
-func (dst *Int2) UnmarshalJSON(b []byte) error {
-	var n *int16
-	err := json.Unmarshal(b, &n)
-	if err != nil {
-		return err
-	}
-
-	if n == nil {
-		*dst = Int2{Status: Null}
-	} else {
-		*dst = Int2{Int: *n, Status: Present}
-	}
-
-	return nil
 }

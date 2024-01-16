@@ -3,7 +3,7 @@ package httputil_test
 import (
 	"encoding/json"
 	"errors"
-	"github.com/if-itb/siasn-libs-backend/httputil"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/httputil"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"

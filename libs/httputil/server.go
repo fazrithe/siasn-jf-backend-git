@@ -2,7 +2,7 @@ package httputil
 
 import (
 	"context"
-	"github.com/if-itb/siasn-libs-backend/libs/logutil"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/logutil"
 	"log"
 	"net/http"
 	"sync"

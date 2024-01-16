@@ -41,13 +41,10 @@ type Rows interface {
 
 	// Scan reads the values from the current row into dest values positionally.
 	// dest can include pointers to core types, values implementing the Scanner
-	// interface, and nil. nil will skip the value entirely. It is an error to
-	// call Scan without first calling Next() and checking that it returned true.
+	// interface, and nil. nil will skip the value entirely.
 	Scan(dest ...interface{}) error
 
-	// Values returns the decoded row values. As with Scan(), it is an error to
-	// call Values without first calling Next() and checking that it returned
-	// true.
+	// Values returns the decoded row values.
 	Values() ([]interface{}, error)
 
 	// RawValues returns the unparsed bytes of the row values. The returned [][]byte is only valid until the next Next
@@ -143,15 +140,14 @@ func (rows *connRows) Close() {
 	}
 
 	if rows.logger != nil {
-		endTime := time.Now()
-
 		if rows.err == nil {
 			if rows.logger.shouldLog(LogLevelInfo) {
+				endTime := time.Now()
 				rows.logger.log(rows.ctx, LogLevelInfo, "Query", map[string]interface{}{"sql": rows.sql, "args": logQueryArgs(rows.args), "time": endTime.Sub(rows.startTime), "rowCount": rows.rowCount})
 			}
 		} else {
 			if rows.logger.shouldLog(LogLevelError) {
-				rows.logger.log(rows.ctx, LogLevelError, "Query", map[string]interface{}{"err": rows.err, "sql": rows.sql, "time": endTime.Sub(rows.startTime), "args": logQueryArgs(rows.args)})
+				rows.logger.log(rows.ctx, LogLevelError, "Query", map[string]interface{}{"err": rows.err, "sql": rows.sql, "args": logQueryArgs(rows.args)})
 			}
 			if rows.err != nil && rows.conn.stmtcache != nil {
 				rows.conn.stmtcache.StatementErrored(rows.sql, rows.err)

@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -37,7 +36,7 @@ const (
 
 // ErrSharedConfigSourceCollision will be returned if a section contains both
 // source_profile and credential_source
-var ErrSharedConfigSourceCollision = awserr.New(ErrCodeSharedConfig, "only one credential type may be specified per profile: source profile, credential source, credential process, web identity token", nil)
+var ErrSharedConfigSourceCollision = awserr.New(ErrCodeSharedConfig, "only one credential type may be specified per profile: source profile, credential source, credential process, web identity token, or sso", nil)
 
 // ErrSharedConfigECSContainerEnvVarEmpty will be returned if the environment
 // variables are empty and Environment was set as the credential source
@@ -174,6 +173,7 @@ const (
 
 // Options provides the means to control how a Session is created and what
 // configuration values will be loaded.
+//
 type Options struct {
 	// Provides config values for the SDK to use when creating service clients
 	// and making API requests to services. Any value set in with this field
@@ -223,7 +223,7 @@ type Options struct {
 	// from stdin for the MFA token code.
 	//
 	// This field is only used if the shared configuration is enabled, and
-	// the config enables assume role with MFA via the mfa_serial field.
+	// the config enables assume role wit MFA via the mfa_serial field.
 	AssumeRoleTokenProvider func() (string, error)
 
 	// When the SDK's shared config is configured to assume a role this option
@@ -303,11 +303,6 @@ type Options struct {
 	//
 	// AWS_EC2_METADATA_SERVICE_ENDPOINT_MODE=IPv6
 	EC2IMDSEndpointMode endpoints.EC2IMDSEndpointModeState
-
-	// Specifies options for creating credential providers.
-	// These are only used if the aws.Config does not already
-	// include credentials.
-	CredentialsProviderOptions *CredentialsProviderOptions
 }
 
 // NewSessionWithOptions returns a new Session created from SDK defaults, config files,
@@ -321,24 +316,24 @@ type Options struct {
 // credentials file. Enabling the Shared Config will also allow the Session
 // to be built with retrieving credentials with AssumeRole set in the config.
 //
-//	// Equivalent to session.New
-//	sess := session.Must(session.NewSessionWithOptions(session.Options{}))
+//     // Equivalent to session.New
+//     sess := session.Must(session.NewSessionWithOptions(session.Options{}))
 //
-//	// Specify profile to load for the session's config
-//	sess := session.Must(session.NewSessionWithOptions(session.Options{
-//	     Profile: "profile_name",
-//	}))
+//     // Specify profile to load for the session's config
+//     sess := session.Must(session.NewSessionWithOptions(session.Options{
+//          Profile: "profile_name",
+//     }))
 //
-//	// Specify profile for config and region for requests
-//	sess := session.Must(session.NewSessionWithOptions(session.Options{
-//	     Config: aws.Config{Region: aws.String("us-east-1")},
-//	     Profile: "profile_name",
-//	}))
+//     // Specify profile for config and region for requests
+//     sess := session.Must(session.NewSessionWithOptions(session.Options{
+//          Config: aws.Config{Region: aws.String("us-east-1")},
+//          Profile: "profile_name",
+//     }))
 //
-//	// Force enable Shared Config support
-//	sess := session.Must(session.NewSessionWithOptions(session.Options{
-//	    SharedConfigState: session.SharedConfigEnable,
-//	}))
+//     // Force enable Shared Config support
+//     sess := session.Must(session.NewSessionWithOptions(session.Options{
+//         SharedConfigState: session.SharedConfigEnable,
+//     }))
 func NewSessionWithOptions(opts Options) (*Session, error) {
 	var envCfg envConfig
 	var err error
@@ -374,7 +369,7 @@ func NewSessionWithOptions(opts Options) (*Session, error) {
 // This helper is intended to be used in variable initialization to load the
 // Session and configuration at startup. Such as:
 //
-//	var sess = session.Must(session.NewSession())
+//     var sess = session.Must(session.NewSession())
 func Must(sess *Session, err error) *Session {
 	if err != nil {
 		panic(err)
@@ -779,12 +774,14 @@ func mergeConfigSrcs(cfg, userCfg *aws.Config,
 		cfg.EndpointResolver = wrapEC2IMDSEndpoint(cfg.EndpointResolver, ec2IMDSEndpoint, endpointMode)
 	}
 
-	cfg.EC2MetadataEnableFallback = userCfg.EC2MetadataEnableFallback
-	if cfg.EC2MetadataEnableFallback == nil && envCfg.EC2IMDSv1Disabled != nil {
-		cfg.EC2MetadataEnableFallback = aws.Bool(!*envCfg.EC2IMDSv1Disabled)
-	}
-	if cfg.EC2MetadataEnableFallback == nil && sharedCfg.EC2IMDSv1Disabled != nil {
-		cfg.EC2MetadataEnableFallback = aws.Bool(!*sharedCfg.EC2IMDSv1Disabled)
+	// Configure credentials if not already set by the user when creating the
+	// Session.
+	if cfg.Credentials == credentials.AnonymousCredentials && userCfg.Credentials == nil {
+		creds, err := resolveCredentials(cfg, envCfg, sharedCfg, handlers, sessOpts)
+		if err != nil {
+			return err
+		}
+		cfg.Credentials = creds
 	}
 
 	cfg.S3UseARNRegion = userCfg.S3UseARNRegion
@@ -793,31 +790,6 @@ func mergeConfigSrcs(cfg, userCfg *aws.Config,
 	}
 	if cfg.S3UseARNRegion == nil {
 		cfg.S3UseARNRegion = &sharedCfg.S3UseARNRegion
-	}
-
-	for _, v := range []endpoints.DualStackEndpointState{userCfg.UseDualStackEndpoint, envCfg.UseDualStackEndpoint, sharedCfg.UseDualStackEndpoint} {
-		if v != endpoints.DualStackEndpointStateUnset {
-			cfg.UseDualStackEndpoint = v
-			break
-		}
-	}
-
-	for _, v := range []endpoints.FIPSEndpointState{userCfg.UseFIPSEndpoint, envCfg.UseFIPSEndpoint, sharedCfg.UseFIPSEndpoint} {
-		if v != endpoints.FIPSEndpointStateUnset {
-			cfg.UseFIPSEndpoint = v
-			break
-		}
-	}
-
-	// Configure credentials if not already set by the user when creating the Session.
-	// Credentials are resolved last such that all _resolved_ config values are propagated to credential providers.
-	// ticket: P83606045
-	if cfg.Credentials == credentials.AnonymousCredentials && userCfg.Credentials == nil {
-		creds, err := resolveCredentials(cfg, envCfg, sharedCfg, handlers, sessOpts)
-		if err != nil {
-			return err
-		}
-		cfg.Credentials = creds
 	}
 
 	return nil
@@ -853,8 +825,8 @@ func initHandlers(s *Session) {
 // and handlers. If any additional configs are provided they will be merged
 // on top of the Session's copied config.
 //
-//	// Create a copy of the current Session, configured for the us-west-2 region.
-//	sess.Copy(&aws.Config{Region: aws.String("us-west-2")})
+//     // Create a copy of the current Session, configured for the us-west-2 region.
+//     sess.Copy(&aws.Config{Region: aws.String("us-west-2")})
 func (s *Session) Copy(cfgs ...*aws.Config) *Session {
 	newSession := &Session{
 		Config:   s.Config.Copy(cfgs...),
@@ -873,10 +845,8 @@ func (s *Session) Copy(cfgs ...*aws.Config) *Session {
 func (s *Session) ClientConfig(service string, cfgs ...*aws.Config) client.Config {
 	s = s.Copy(cfgs...)
 
-	resolvedRegion := normalizeRegion(s.Config)
-
 	region := aws.StringValue(s.Config.Region)
-	resolved, err := s.resolveEndpoint(service, region, resolvedRegion, s.Config)
+	resolved, err := s.resolveEndpoint(service, region, s.Config)
 	if err != nil {
 		s.Handlers.Validate.PushBack(func(r *request.Request) {
 			if len(r.ClientInfo.Endpoint) != 0 {
@@ -897,13 +867,12 @@ func (s *Session) ClientConfig(service string, cfgs ...*aws.Config) client.Confi
 		SigningRegion:      resolved.SigningRegion,
 		SigningNameDerived: resolved.SigningNameDerived,
 		SigningName:        resolved.SigningName,
-		ResolvedRegion:     resolvedRegion,
 	}
 }
 
 const ec2MetadataServiceID = "ec2metadata"
 
-func (s *Session) resolveEndpoint(service, region, resolvedRegion string, cfg *aws.Config) (endpoints.ResolvedEndpoint, error) {
+func (s *Session) resolveEndpoint(service, region string, cfg *aws.Config) (endpoints.ResolvedEndpoint, error) {
 
 	if ep := aws.StringValue(cfg.Endpoint); len(ep) != 0 {
 		return endpoints.ResolvedEndpoint{
@@ -915,12 +884,7 @@ func (s *Session) resolveEndpoint(service, region, resolvedRegion string, cfg *a
 	resolved, err := cfg.EndpointResolver.EndpointFor(service, region,
 		func(opt *endpoints.Options) {
 			opt.DisableSSL = aws.BoolValue(cfg.DisableSSL)
-
 			opt.UseDualStack = aws.BoolValue(cfg.UseDualStack)
-			opt.UseDualStackEndpoint = cfg.UseDualStackEndpoint
-
-			opt.UseFIPSEndpoint = cfg.UseFIPSEndpoint
-
 			// Support for STSRegionalEndpoint where the STSRegionalEndpoint is
 			// provided in envConfig or sharedConfig with envConfig getting
 			// precedence.
@@ -934,11 +898,6 @@ func (s *Session) resolveEndpoint(service, region, resolvedRegion string, cfg *a
 			// Support the condition where the service is modeled but its
 			// endpoint metadata is not available.
 			opt.ResolveUnknownService = true
-
-			opt.ResolvedRegion = resolvedRegion
-
-			opt.Logger = cfg.Logger
-			opt.LogDeprecated = cfg.LogLevel.Matches(aws.LogDebugWithDeprecated)
 		},
 	)
 	if err != nil {
@@ -954,8 +913,6 @@ func (s *Session) resolveEndpoint(service, region, resolvedRegion string, cfg *a
 func (s *Session) ClientConfigNoResolveEndpoint(cfgs ...*aws.Config) client.Config {
 	s = s.Copy(cfgs...)
 
-	resolvedRegion := normalizeRegion(s.Config)
-
 	var resolved endpoints.ResolvedEndpoint
 	if ep := aws.StringValue(s.Config.Endpoint); len(ep) > 0 {
 		resolved.URL = endpoints.AddScheme(ep, aws.BoolValue(s.Config.DisableSSL))
@@ -969,7 +926,6 @@ func (s *Session) ClientConfigNoResolveEndpoint(cfgs ...*aws.Config) client.Conf
 		SigningRegion:      resolved.SigningRegion,
 		SigningNameDerived: resolved.SigningNameDerived,
 		SigningName:        resolved.SigningName,
-		ResolvedRegion:     resolvedRegion,
 	}
 }
 
@@ -982,24 +938,4 @@ func (s *Session) logDeprecatedNewSessionError(msg string, err error, cfgs []*aw
 	s.Handlers.Validate.PushBack(func(r *request.Request) {
 		r.Error = err
 	})
-}
-
-// normalizeRegion resolves / normalizes the configured region (converts pseudo fips regions), and modifies the provided
-// config to have the equivalent options for resolution and returns the resolved region name.
-func normalizeRegion(cfg *aws.Config) (resolved string) {
-	const fipsInfix = "-fips-"
-	const fipsPrefix = "-fips"
-	const fipsSuffix = "fips-"
-
-	region := aws.StringValue(cfg.Region)
-
-	if strings.Contains(region, fipsInfix) ||
-		strings.Contains(region, fipsPrefix) ||
-		strings.Contains(region, fipsSuffix) {
-		resolved = strings.Replace(strings.Replace(strings.Replace(
-			region, fipsInfix, "-", -1), fipsPrefix, "", -1), fipsSuffix, "", -1)
-		cfg.UseFIPSEndpoint = endpoints.FIPSEndpointStateEnabled
-	}
-
-	return resolved
 }

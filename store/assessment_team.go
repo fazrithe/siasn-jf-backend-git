@@ -256,7 +256,7 @@ from tim_penilaian where tim_penilaian_id = $1
 
 // SearchAssessmentTeamsCtx searches for the list of assessment team admissions with a particular filter.
 // It will return empty slice if no admissions are found.
-func (c *Client) SearchAssessmentTeamsCtx(ctx context.Context, filter *AssessmentTeamAdmissionSearchFilter) (result *search.PaginatedList[*models.AssessmentTeamItem], err error) {
+func (c *Client) SearchAssessmentTeamsCtx(ctx context.Context, filter *AssessmentTeamAdmissionSearchFilter) (result *search.PaginatedList, err error) {
 	mdb := metricutil.NewDB(c.Db, c.SqlMetrics)
 	referenceMdb := metricutil.NewDB(c.ReferenceDb, c.SqlMetrics)
 
@@ -311,7 +311,7 @@ func (c *Client) SearchAssessmentTeamsCtx(ctx context.Context, filter *Assessmen
 		admissions = admissions[:filter.CountPerPage]
 	}
 
-	return &search.PaginatedList[*models.AssessmentTeamItem]{
+	return &search.PaginatedList{
 		Data:     admissions,
 		Metadata: search.CreatePaginatedListMetadataNoTotalNext(filter.PageNumber, len(admissions), hasNext),
 	}, nil

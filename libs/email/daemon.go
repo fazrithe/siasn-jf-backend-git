@@ -2,7 +2,7 @@ package email
 
 import (
 	"crypto/tls"
-	"github.com/if-itb/siasn-libs-backend/logutil"
+	"github.com/fazrithe/siasn-jf-backend-git/libs/logutil"
 	gomail "gopkg.in/mail.v2"
 	"net"
 	"strconv"

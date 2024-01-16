@@ -10,36 +10,32 @@ import (
 	"github.com/jackc/pgconn"
 )
 
-// TxIsoLevel is the transaction isolation level (serializable, repeatable read, read committed or read uncommitted)
 type TxIsoLevel string
 
 // Transaction isolation levels
 const (
-	Serializable    TxIsoLevel = "serializable"
-	RepeatableRead  TxIsoLevel = "repeatable read"
-	ReadCommitted   TxIsoLevel = "read committed"
-	ReadUncommitted TxIsoLevel = "read uncommitted"
+	Serializable    = TxIsoLevel("serializable")
+	RepeatableRead  = TxIsoLevel("repeatable read")
+	ReadCommitted   = TxIsoLevel("read committed")
+	ReadUncommitted = TxIsoLevel("read uncommitted")
 )
 
-// TxAccessMode is the transaction access mode (read write or read only)
 type TxAccessMode string
 
 // Transaction access modes
 const (
-	ReadWrite TxAccessMode = "read write"
-	ReadOnly  TxAccessMode = "read only"
+	ReadWrite = TxAccessMode("read write")
+	ReadOnly  = TxAccessMode("read only")
 )
 
-// TxDeferrableMode is the transaction deferrable mode (deferrable or not deferrable)
 type TxDeferrableMode string
 
 // Transaction deferrable modes
 const (
-	Deferrable    TxDeferrableMode = "deferrable"
-	NotDeferrable TxDeferrableMode = "not deferrable"
+	Deferrable    = TxDeferrableMode("deferrable")
+	NotDeferrable = TxDeferrableMode("not deferrable")
 )
 
-// TxOptions are transaction modes within a transaction block
 type TxOptions struct {
 	IsoLevel       TxIsoLevel
 	AccessMode     TxAccessMode
@@ -113,7 +109,7 @@ func (c *Conn) BeginTxFunc(ctx context.Context, txOptions TxOptions, f func(Tx) 
 	}
 	defer func() {
 		rollbackErr := tx.Rollback(ctx)
-		if rollbackErr != nil && !errors.Is(rollbackErr, ErrTxClosed) {
+		if !(rollbackErr == nil || errors.Is(rollbackErr, ErrTxClosed)) {
 			err = rollbackErr
 		}
 	}()
@@ -192,7 +188,7 @@ func (tx *dbTx) Begin(ctx context.Context) (Tx, error) {
 		return nil, err
 	}
 
-	return &dbSimulatedNestedTx{tx: tx, savepointNum: tx.savepointNum}, nil
+	return &dbSavepoint{tx: tx, savepointNum: tx.savepointNum}, nil
 }
 
 func (tx *dbTx) BeginFunc(ctx context.Context, f func(Tx) error) (err error) {
@@ -207,7 +203,7 @@ func (tx *dbTx) BeginFunc(ctx context.Context, f func(Tx) error) (err error) {
 	}
 	defer func() {
 		rollbackErr := savepoint.Rollback(ctx)
-		if rollbackErr != nil && !errors.Is(rollbackErr, ErrTxClosed) {
+		if !(rollbackErr == nil || errors.Is(rollbackErr, ErrTxClosed)) {
 			err = rollbackErr
 		}
 	}()
@@ -329,15 +325,15 @@ func (tx *dbTx) Conn() *Conn {
 	return tx.conn
 }
 
-// dbSimulatedNestedTx represents a simulated nested transaction implemented by a savepoint.
-type dbSimulatedNestedTx struct {
+// dbSavepoint represents a nested transaction implemented by a savepoint.
+type dbSavepoint struct {
 	tx           Tx
 	savepointNum int64
 	closed       bool
 }
 
 // Begin starts a pseudo nested transaction implemented with a savepoint.
-func (sp *dbSimulatedNestedTx) Begin(ctx context.Context) (Tx, error) {
+func (sp *dbSavepoint) Begin(ctx context.Context) (Tx, error) {
 	if sp.closed {
 		return nil, ErrTxClosed
 	}
@@ -345,7 +341,7 @@ func (sp *dbSimulatedNestedTx) Begin(ctx context.Context) (Tx, error) {
 	return sp.tx.Begin(ctx)
 }
 
-func (sp *dbSimulatedNestedTx) BeginFunc(ctx context.Context, f func(Tx) error) (err error) {
+func (sp *dbSavepoint) BeginFunc(ctx context.Context, f func(Tx) error) (err error) {
 	if sp.closed {
 		return ErrTxClosed
 	}
@@ -354,7 +350,7 @@ func (sp *dbSimulatedNestedTx) BeginFunc(ctx context.Context, f func(Tx) error) 
 }
 
 // Commit releases the savepoint essentially committing the pseudo nested transaction.
-func (sp *dbSimulatedNestedTx) Commit(ctx context.Context) error {
+func (sp *dbSavepoint) Commit(ctx context.Context) error {
 	if sp.closed {
 		return ErrTxClosed
 	}
@@ -367,7 +363,7 @@ func (sp *dbSimulatedNestedTx) Commit(ctx context.Context) error {
 // Rollback rolls back to the savepoint essentially rolling back the pseudo nested transaction. Rollback will return
 // ErrTxClosed if the dbSavepoint is already closed, but is otherwise safe to call multiple times. Hence, a defer sp.Rollback()
 // is safe even if sp.Commit() will be called first in a non-error condition.
-func (sp *dbSimulatedNestedTx) Rollback(ctx context.Context) error {
+func (sp *dbSavepoint) Rollback(ctx context.Context) error {
 	if sp.closed {
 		return ErrTxClosed
 	}
@@ -378,7 +374,7 @@ func (sp *dbSimulatedNestedTx) Rollback(ctx context.Context) error {
 }
 
 // Exec delegates to the underlying Tx
-func (sp *dbSimulatedNestedTx) Exec(ctx context.Context, sql string, arguments ...interface{}) (commandTag pgconn.CommandTag, err error) {
+func (sp *dbSavepoint) Exec(ctx context.Context, sql string, arguments ...interface{}) (commandTag pgconn.CommandTag, err error) {
 	if sp.closed {
 		return nil, ErrTxClosed
 	}
@@ -387,7 +383,7 @@ func (sp *dbSimulatedNestedTx) Exec(ctx context.Context, sql string, arguments .
 }
 
 // Prepare delegates to the underlying Tx
-func (sp *dbSimulatedNestedTx) Prepare(ctx context.Context, name, sql string) (*pgconn.StatementDescription, error) {
+func (sp *dbSavepoint) Prepare(ctx context.Context, name, sql string) (*pgconn.StatementDescription, error) {
 	if sp.closed {
 		return nil, ErrTxClosed
 	}
@@ -396,7 +392,7 @@ func (sp *dbSimulatedNestedTx) Prepare(ctx context.Context, name, sql string) (*
 }
 
 // Query delegates to the underlying Tx
-func (sp *dbSimulatedNestedTx) Query(ctx context.Context, sql string, args ...interface{}) (Rows, error) {
+func (sp *dbSavepoint) Query(ctx context.Context, sql string, args ...interface{}) (Rows, error) {
 	if sp.closed {
 		// Because checking for errors can be deferred to the *Rows, build one with the error
 		err := ErrTxClosed
@@ -407,13 +403,13 @@ func (sp *dbSimulatedNestedTx) Query(ctx context.Context, sql string, args ...in
 }
 
 // QueryRow delegates to the underlying Tx
-func (sp *dbSimulatedNestedTx) QueryRow(ctx context.Context, sql string, args ...interface{}) Row {
+func (sp *dbSavepoint) QueryRow(ctx context.Context, sql string, args ...interface{}) Row {
 	rows, _ := sp.Query(ctx, sql, args...)
 	return (*connRow)(rows.(*connRows))
 }
 
 // QueryFunc delegates to the underlying Tx.
-func (sp *dbSimulatedNestedTx) QueryFunc(ctx context.Context, sql string, args []interface{}, scans []interface{}, f func(QueryFuncRow) error) (pgconn.CommandTag, error) {
+func (sp *dbSavepoint) QueryFunc(ctx context.Context, sql string, args []interface{}, scans []interface{}, f func(QueryFuncRow) error) (pgconn.CommandTag, error) {
 	if sp.closed {
 		return nil, ErrTxClosed
 	}
@@ -422,7 +418,7 @@ func (sp *dbSimulatedNestedTx) QueryFunc(ctx context.Context, sql string, args [
 }
 
 // CopyFrom delegates to the underlying *Conn
-func (sp *dbSimulatedNestedTx) CopyFrom(ctx context.Context, tableName Identifier, columnNames []string, rowSrc CopyFromSource) (int64, error) {
+func (sp *dbSavepoint) CopyFrom(ctx context.Context, tableName Identifier, columnNames []string, rowSrc CopyFromSource) (int64, error) {
 	if sp.closed {
 		return 0, ErrTxClosed
 	}
@@ -431,7 +427,7 @@ func (sp *dbSimulatedNestedTx) CopyFrom(ctx context.Context, tableName Identifie
 }
 
 // SendBatch delegates to the underlying *Conn
-func (sp *dbSimulatedNestedTx) SendBatch(ctx context.Context, b *Batch) BatchResults {
+func (sp *dbSavepoint) SendBatch(ctx context.Context, b *Batch) BatchResults {
 	if sp.closed {
 		return &batchResults{err: ErrTxClosed}
 	}
@@ -439,10 +435,10 @@ func (sp *dbSimulatedNestedTx) SendBatch(ctx context.Context, b *Batch) BatchRes
 	return sp.tx.SendBatch(ctx, b)
 }
 
-func (sp *dbSimulatedNestedTx) LargeObjects() LargeObjects {
+func (sp *dbSavepoint) LargeObjects() LargeObjects {
 	return LargeObjects{tx: sp}
 }
 
-func (sp *dbSimulatedNestedTx) Conn() *Conn {
+func (sp *dbSavepoint) Conn() *Conn {
 	return sp.tx.Conn()
 }

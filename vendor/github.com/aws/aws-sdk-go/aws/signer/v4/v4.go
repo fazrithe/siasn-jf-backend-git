@@ -3,21 +3,21 @@
 // Provides request signing for request that need to be signed with
 // AWS V4 Signatures.
 //
-// # Standalone Signer
+// Standalone Signer
 //
 // Generally using the signer outside of the SDK should not require any additional
 // logic when using Go v1.5 or higher. The signer does this by taking advantage
 // of the URL.EscapedPath method. If your request URI requires additional escaping
-// you may need to use the URL.Opaque to define what the raw URI should be sent
+// you many need to use the URL.Opaque to define what the raw URI should be sent
 // to the service as.
 //
 // The signer will first check the URL.Opaque field, and use its value if set.
 // The signer does require the URL.Opaque field to be set in the form of:
 //
-//	"//<hostname>/<path>"
+//     "//<hostname>/<path>"
 //
-//	// e.g.
-//	"//example.com/some/path"
+//     // e.g.
+//     "//example.com/some/path"
 //
 // The leading "//" and hostname are required or the URL.Opaque escaping will
 // not work correctly.
@@ -125,7 +125,6 @@ var requiredSignedHeaders = rules{
 			"X-Amz-Copy-Source-Server-Side-Encryption-Customer-Algorithm": struct{}{},
 			"X-Amz-Copy-Source-Server-Side-Encryption-Customer-Key":       struct{}{},
 			"X-Amz-Copy-Source-Server-Side-Encryption-Customer-Key-Md5":   struct{}{},
-			"X-Amz-Expected-Bucket-Owner":                                 struct{}{},
 			"X-Amz-Grant-Full-control":                                    struct{}{},
 			"X-Amz-Grant-Read":                                            struct{}{},
 			"X-Amz-Grant-Read-Acp":                                        struct{}{},
@@ -136,7 +135,6 @@ var requiredSignedHeaders = rules{
 			"X-Amz-Request-Payer":                                         struct{}{},
 			"X-Amz-Server-Side-Encryption":                                struct{}{},
 			"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id":                 struct{}{},
-			"X-Amz-Server-Side-Encryption-Context":                        struct{}{},
 			"X-Amz-Server-Side-Encryption-Customer-Algorithm":             struct{}{},
 			"X-Amz-Server-Side-Encryption-Customer-Key":                   struct{}{},
 			"X-Amz-Server-Side-Encryption-Customer-Key-Md5":               struct{}{},
@@ -636,25 +634,21 @@ func (ctx *signingCtx) buildCanonicalHeaders(r rule, header http.Header) {
 		ctx.Query.Set("X-Amz-SignedHeaders", ctx.signedHeaders)
 	}
 
-	headerItems := make([]string, len(headers))
+	headerValues := make([]string, len(headers))
 	for i, k := range headers {
 		if k == "host" {
 			if ctx.Request.Host != "" {
-				headerItems[i] = "host:" + ctx.Request.Host
+				headerValues[i] = "host:" + ctx.Request.Host
 			} else {
-				headerItems[i] = "host:" + ctx.Request.URL.Host
+				headerValues[i] = "host:" + ctx.Request.URL.Host
 			}
 		} else {
-			headerValues := make([]string, len(ctx.SignedHeaderVals[k]))
-			for i, v := range ctx.SignedHeaderVals[k] {
-				headerValues[i] = strings.TrimSpace(v)
-			}
-			headerItems[i] = k + ":" +
-				strings.Join(headerValues, ",")
+			headerValues[i] = k + ":" +
+				strings.Join(ctx.SignedHeaderVals[k], ",")
 		}
 	}
-	stripExcessSpaces(headerItems)
-	ctx.canonicalHeaders = strings.Join(headerItems, "\n")
+	stripExcessSpaces(headerValues)
+	ctx.canonicalHeaders = strings.Join(headerValues, "\n")
 }
 
 func (ctx *signingCtx) buildCanonicalString() {
@@ -697,8 +691,7 @@ func (ctx *signingCtx) buildBodyDigest() error {
 		includeSHA256Header := ctx.unsignedPayload ||
 			ctx.ServiceName == "s3" ||
 			ctx.ServiceName == "s3-object-lambda" ||
-			ctx.ServiceName == "glacier" ||
-			ctx.ServiceName == "s3-outposts"
+			ctx.ServiceName == "glacier"
 
 		s3Presign := ctx.isPresign &&
 			(ctx.ServiceName == "s3" ||
